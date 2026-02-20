@@ -12,8 +12,12 @@ export default function ArtWorks() {
   const [artworks, setArtworks] = useState<Artwork[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
-
   const [totalEntries, setTotalEntries] = useState<number>(1);
+  const [selectedArtworksIds, setSelectedArtworksIds] = useState<Set<number>>(
+    new Set(),
+  );
+
+  console.log(selectedArtworksIds);
 
   useEffect(() => {
     const loadData = async () => {
@@ -47,6 +51,11 @@ export default function ArtWorks() {
 
   return (
     <div className="w-full p-4 space-y-5">
+      <span className="font-bold mb-2">
+        {selectedArtworksIds?.size
+          ? `Selected ${selectedArtworksIds.size} rows`
+          : ""}
+      </span>
       <DataTable
         value={artworks}
         dataKey="id"
@@ -55,7 +64,33 @@ export default function ArtWorks() {
         size="small"
         rows={12}
         first={(currentPage - 1) * 12}
+        selectionMode={"checkbox"}
+        selection={artworks.filter((artwork) =>
+          selectedArtworksIds.has(artwork.id),
+        )}
+        onSelectionChange={(e) => {
+          const newlySelected = e.value;
+
+          setSelectedArtworksIds((prev) => {
+            const nextSet = new Set(prev);
+
+            artworks.forEach((artwork) => {
+              nextSet.delete(artwork.id);
+            });
+
+            newlySelected.forEach((artwork) => {
+              nextSet.add(artwork.id);
+            });
+
+            return nextSet;
+          });
+        }}
       >
+        <Column
+          selectionMode="multiple"
+          headerStyle={{ width: "3rem" }}
+        ></Column>
+
         <Column field="title" header="Title" align={"left"}></Column>
         <Column
           field="place_of_origin"
