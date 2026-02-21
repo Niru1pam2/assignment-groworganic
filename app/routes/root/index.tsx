@@ -1,12 +1,14 @@
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "~/lib/axios";
 import type { ApiResponse, Artwork } from "~/types";
 
 import { Button } from "primereact/button";
 import "primereact/resources/themes/lara-light-cyan/theme.css";
 import { getPaginationNumbers } from "~/lib/paginationHelper";
+import { ChevronDown } from "lucide-react";
+import { OverlayPanel } from "primereact/overlaypanel";
 
 export default function ArtWorks() {
   const [artworks, setArtworks] = useState<Artwork[]>([]);
@@ -19,7 +21,9 @@ export default function ArtWorks() {
   const [deselectedArtworksIds, setDeselectedArtworksIds] = useState<
     Set<number>
   >(new Set());
-  const [inputSelectedRows, setInputSelectedRows] = useState<number>(24);
+  const [inputSelectedRows, setInputSelectedRows] = useState<number>(0);
+  const op = useRef<OverlayPanel>(null);
+  const [input, setInput] = useState<number>(0);
 
   const currentlySelected = artworks.filter((artwork, idx) => {
     const activeIndex = (currentPage - 1) * 12 + idx;
@@ -62,6 +66,12 @@ export default function ArtWorks() {
 
   const pagesInBetween = getPaginationNumbers(currentPage);
 
+  const handleSubmit = () => {
+    setInputSelectedRows(input);
+    setSelectedArtworksIds(new Set());
+    setDeselectedArtworksIds(new Set());
+  };
+
   return (
     <div className="w-full p-4 space-y-5">
       <span className="font-bold mb-2">
@@ -70,6 +80,28 @@ export default function ArtWorks() {
           selectedArtworksIds.size -
           deselectedArtworksIds.size}
       </span>
+
+      <OverlayPanel ref={op}>
+        <div className="flex flex-col gap-2">
+          <div>
+            <h2 className="font-bold">Select Multiple Rows</h2>
+            <p className="text-sm text-gray-500">
+              Enter number of rows to select across all pages
+            </p>
+          </div>
+          <div className="flex justify-between gap-2">
+            <input
+              type="number"
+              onChange={(e) => setInput(parseInt(e.target.value) || 0)}
+              className="border h-10 flex-1 p-2"
+            />
+
+            <Button size="small" onClick={handleSubmit}>
+              Submit
+            </Button>
+          </div>
+        </div>
+      </OverlayPanel>
       <DataTable
         value={artworks}
         dataKey="id"
@@ -126,7 +158,17 @@ export default function ArtWorks() {
       >
         <Column
           selectionMode="multiple"
-          headerStyle={{ width: "3rem" }}
+          headerStyle={{ width: "4rem", position: "relative" }}
+          header={
+            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+              <button
+                className="cursor-pointer text-gray-600 hover:text-black border-none bg-transparent"
+                onClick={(e) => op.current?.toggle(e)}
+              >
+                <ChevronDown size={20} />
+              </button>
+            </div>
+          }
         ></Column>
 
         <Column field="title" header="Title" align={"left"}></Column>
