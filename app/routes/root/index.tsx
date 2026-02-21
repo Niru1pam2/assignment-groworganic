@@ -16,8 +16,21 @@ export default function ArtWorks() {
   const [selectedArtworksIds, setSelectedArtworksIds] = useState<Set<number>>(
     new Set(),
   );
+  const [deselectedArtworksIds, setDeselectedArtworksIds] = useState<
+    Set<number>
+  >(new Set());
+  const [inputSelectedRows, setInputSelectedRows] = useState<number>(24);
 
-  console.log(selectedArtworksIds);
+  const currentlySelected = artworks.filter((artwork, idx) => {
+    const activeIndex = (currentPage - 1) * 12 + idx;
+    const isinBound = activeIndex < inputSelectedRows;
+
+    if (isinBound) {
+      return !deselectedArtworksIds.has(artwork.id);
+    } else {
+      return selectedArtworksIds.has(artwork.id);
+    }
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -52,9 +65,10 @@ export default function ArtWorks() {
   return (
     <div className="w-full p-4 space-y-5">
       <span className="font-bold mb-2">
-        {selectedArtworksIds?.size
-          ? `Selected ${selectedArtworksIds.size} rows`
-          : ""}
+        Total Selected:{" "}
+        {inputSelectedRows +
+          selectedArtworksIds.size -
+          deselectedArtworksIds.size}
       </span>
       <DataTable
         value={artworks}
@@ -65,23 +79,47 @@ export default function ArtWorks() {
         rows={12}
         first={(currentPage - 1) * 12}
         selectionMode={"checkbox"}
-        selection={artworks.filter((artwork) =>
-          selectedArtworksIds.has(artwork.id),
-        )}
+        selection={currentlySelected}
         onSelectionChange={(e) => {
           const newlySelected = e.value;
+          const newlySelectedIds = new Set(newlySelected.map((n) => n.id));
+
+          const toAddSelected = new Set<number>();
+          const toRemoveSelected = new Set<number>();
+          const toAddDeselected = new Set<number>();
+          const toRemoveDeselected = new Set<number>();
+
+          artworks.forEach((artwork, idx) => {
+            const activeIndex = (currentPage - 1) * 12 + idx;
+            const isinBound = activeIndex < inputSelectedRows;
+            const userChecked = newlySelectedIds.has(artwork.id);
+
+            if (isinBound) {
+              if (userChecked) {
+                toRemoveDeselected.add(artwork.id);
+              } else {
+                toAddDeselected.add(artwork.id);
+              }
+            } else {
+              if (userChecked) {
+                toAddSelected.add(artwork.id);
+              } else {
+                toRemoveSelected.add(artwork.id);
+              }
+            }
+          });
 
           setSelectedArtworksIds((prev) => {
             const nextSet = new Set(prev);
+            toAddSelected.forEach((id) => nextSet.add(id));
+            toRemoveSelected.forEach((id) => nextSet.delete(id));
+            return nextSet;
+          });
 
-            artworks.forEach((artwork) => {
-              nextSet.delete(artwork.id);
-            });
-
-            newlySelected.forEach((artwork) => {
-              nextSet.add(artwork.id);
-            });
-
+          setDeselectedArtworksIds((prev) => {
+            const nextSet = new Set(prev);
+            toAddDeselected.forEach((id) => nextSet.add(id));
+            toRemoveDeselected.forEach((id) => nextSet.delete(id));
             return nextSet;
           });
         }}
