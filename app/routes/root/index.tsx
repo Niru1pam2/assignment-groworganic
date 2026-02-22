@@ -1,76 +1,38 @@
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
-import { useEffect, useRef, useState } from "react";
-import api from "~/lib/axios";
-import type { ApiResponse, Artwork } from "~/types";
+import { useRef, useState } from "react";
+import type { Artwork } from "~/types";
 
-import { Button } from "primereact/button";
-import "primereact/resources/themes/lara-light-cyan/theme.css";
-import { getPaginationNumbers } from "~/lib/paginationHelper";
 import { ChevronDown } from "lucide-react";
+import { Button } from "primereact/button";
 import { OverlayPanel } from "primereact/overlaypanel";
+import "primereact/resources/themes/lara-light-cyan/theme.css";
+import TablePagination from "~/components/table-pagination";
+import { useArtWorksData } from "~/hooks/useArtworksData";
+import { useInputSelection } from "~/hooks/useInputSelection";
 
 export default function ArtWorks() {
-  const [artworks, setArtworks] = useState<Artwork[]>([]);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [totalEntries, setTotalEntries] = useState<number>(1);
-  const [selectedArtworksIds, setSelectedArtworksIds] = useState<Set<number>>(
-    new Set(),
-  );
-  const [deselectedArtworksIds, setDeselectedArtworksIds] = useState<
-    Set<number>
-  >(new Set());
-  const [inputSelectedRows, setInputSelectedRows] = useState<number>(0);
-  const op = useRef<OverlayPanel>(null);
+  const {
+    artworks,
+    currentPage,
+    onNextPageClick,
+    onPrevPageClick,
+    totalEntries,
+    totalPages,
+    setCurrentPage,
+  } = useArtWorksData();
+
+  const {
+    currentlySelected,
+    deselectedArtworksIds,
+    handleSelectionChange,
+    handleSubmit,
+    inputSelectedRows,
+    selectedArtworksIds,
+  } = useInputSelection(artworks, currentPage);
+
   const [input, setInput] = useState<number>(0);
-
-  const currentlySelected = artworks.filter((artwork, idx) => {
-    const activeIndex = (currentPage - 1) * 12 + idx;
-    const isinBound = activeIndex < inputSelectedRows;
-
-    if (isinBound) {
-      return !deselectedArtworksIds.has(artwork.id);
-    } else {
-      return selectedArtworksIds.has(artwork.id);
-    }
-  });
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const response = await api.get<ApiResponse>(`?page=${currentPage}`);
-        console.log("RESPONSE", response);
-        setArtworks(response.data.data);
-        setTotalPages(response.data.pagination.total_pages);
-        setTotalEntries(response.data.pagination.total);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      }
-    };
-
-    loadData();
-  }, [currentPage]);
-
-  const onNextPageClick = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage((prev) => prev + 1);
-    }
-  };
-
-  const onPrevPageClick = () => {
-    if (currentPage > 1) {
-      setCurrentPage((prev) => prev - 1);
-    }
-  };
-
-  const pagesInBetween = getPaginationNumbers(currentPage);
-
-  const handleSubmit = () => {
-    setInputSelectedRows(input);
-    setSelectedArtworksIds(new Set());
-    setDeselectedArtworksIds(new Set());
-  };
+  const op = useRef<OverlayPanel>(null);
 
   return (
     <div className="w-full p-4 space-y-5">
@@ -96,7 +58,7 @@ export default function ArtWorks() {
               className="border h-10 flex-1 p-2"
             />
 
-            <Button size="small" onClick={handleSubmit}>
+            <Button size="small" onClick={() => handleSubmit(input)}>
               Submit
             </Button>
           </div>
@@ -112,49 +74,7 @@ export default function ArtWorks() {
         first={(currentPage - 1) * 12}
         selectionMode={"checkbox"}
         selection={currentlySelected}
-        onSelectionChange={(e) => {
-          const newlySelected = e.value;
-          const newlySelectedIds = new Set(newlySelected.map((n) => n.id));
-
-          const toAddSelected = new Set<number>();
-          const toRemoveSelected = new Set<number>();
-          const toAddDeselected = new Set<number>();
-          const toRemoveDeselected = new Set<number>();
-
-          artworks.forEach((artwork, idx) => {
-            const activeIndex = (currentPage - 1) * 12 + idx;
-            const isinBound = activeIndex < inputSelectedRows;
-            const userChecked = newlySelectedIds.has(artwork.id);
-
-            if (isinBound) {
-              if (userChecked) {
-                toRemoveDeselected.add(artwork.id);
-              } else {
-                toAddDeselected.add(artwork.id);
-              }
-            } else {
-              if (userChecked) {
-                toAddSelected.add(artwork.id);
-              } else {
-                toRemoveSelected.add(artwork.id);
-              }
-            }
-          });
-
-          setSelectedArtworksIds((prev) => {
-            const nextSet = new Set(prev);
-            toAddSelected.forEach((id) => nextSet.add(id));
-            toRemoveSelected.forEach((id) => nextSet.delete(id));
-            return nextSet;
-          });
-
-          setDeselectedArtworksIds((prev) => {
-            const nextSet = new Set(prev);
-            toAddDeselected.forEach((id) => nextSet.add(id));
-            toRemoveDeselected.forEach((id) => nextSet.delete(id));
-            return nextSet;
-          });
-        }}
+        onSelectionChange={(e) => handleSelectionChange(e.value as Artwork[])}
       >
         <Column
           selectionMode="multiple"
@@ -188,40 +108,14 @@ export default function ArtWorks() {
         <Column field="date_end" header="End Date" align={"left"}></Column>
       </DataTable>
 
-      <div className="flex items-center justify-between border-t p-4">
-        <div>
-          <span className="text-sm text-gray-500">
-            Showing {currentPage * 12 - 12 + 1} to {currentPage * 12} of{" "}
-            {totalEntries} entries
-          </span>
-        </div>
-        <div className="flex gap-2 items-center justify-center">
-          <Button
-            onClick={onPrevPageClick}
-            disabled={currentPage === 1}
-            size="small"
-          >
-            Prev
-          </Button>
-          {pagesInBetween.map((p) => (
-            <Button
-              severity={currentPage === p ? "secondary" : "info"}
-              key={p}
-              size="small"
-              onClick={() => setCurrentPage(p)}
-            >
-              {p}
-            </Button>
-          ))}
-          <Button
-            onClick={onNextPageClick}
-            disabled={currentPage === totalPages}
-            size="small"
-          >
-            Next
-          </Button>
-        </div>
-      </div>
+      <TablePagination
+        currentPage={currentPage}
+        onNextPageClick={onNextPageClick}
+        onPrevPageClick={onPrevPageClick}
+        setCurrentPage={setCurrentPage}
+        totalEntries={totalEntries}
+        totalPages={totalPages}
+      />
     </div>
   );
 }
